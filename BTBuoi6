@@ -1,0 +1,209 @@
+using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+
+namespace WinFormsApp6
+{
+    public partial class Form2 : Form
+    {
+        private int idDangChon = 0;
+
+        public Form2()
+        {
+            InitializeComponent();
+
+            Load += Form2_Load;
+            dataGridView1.CellClick += dataGridView1_CellClick;
+        }
+
+        private async void Form2_Load(object sender, EventArgs e)
+        {
+            await TaiDanhSachAsync();
+        }
+
+        private async Task<List<student>> LayDanhSachAsync()
+        {
+            using (var context = new AppDbContext())
+            {
+                return await context.students
+                    .OrderBy(x => x.Id)
+                    .ToListAsync();
+            }
+        }
+
+        private async Task TaiDanhSachAsync()
+        {
+            var students = await LayDanhSachAsync();
+            dataGridView1.DataSource = students;
+        }
+
+        private async void btnThem_Click(object sender, EventArgs e)
+        {
+            if (string.IsNullOrWhiteSpace(txtHoTen.Text))
+            {
+                MessageBox.Show("Vui lòng nhập họ tên");
+                return;
+            }
+
+            if (!double.TryParse(txtDiem.Text, out double diem))
+            {
+                MessageBox.Show("Điểm không hợp lệ");
+                return;
+            }
+
+            if (diem < 0 || diem > 10)
+            {
+                MessageBox.Show("Điểm phải từ 0 đến 10");
+                return;
+            }
+
+            using (var context = new AppDbContext())
+            {
+                student sv = new student
+                {
+                    FullName = txtHoTen.Text.Trim(),
+                    Grade = diem
+                };
+
+                await context.students.AddAsync(sv);
+                await context.SaveChangesAsync();
+            }
+
+            MessageBox.Show("Thêm sinh viên thành công");
+
+            XoaTrang();
+            await TaiDanhSachAsync();
+        }
+
+        private async void btnSua_Click(object sender, EventArgs e)
+        {
+            if (idDangChon == 0)
+            {
+                MessageBox.Show("Vui lòng chọn sinh viên cần sửa");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(txtHoTen.Text))
+            {
+                MessageBox.Show("Vui lòng nhập họ tên");
+                return;
+            }
+
+            if (!double.TryParse(txtDiem.Text, out double diem))
+            {
+                MessageBox.Show("Điểm không hợp lệ");
+                return;
+            }
+
+            if (diem < 0 || diem > 10)
+            {
+                MessageBox.Show("Điểm phải từ 0 đến 10");
+                return;
+            }
+
+            using (var context = new AppDbContext())
+            {
+                student sv = await context.students.FindAsync(idDangChon);
+
+                if (sv == null)
+                {
+                    MessageBox.Show("Không tìm thấy sinh viên");
+                    return;
+                }
+
+                sv.FullName = txtHoTen.Text.Trim();
+                sv.Grade = diem;
+
+                await context.SaveChangesAsync();
+            }
+
+            MessageBox.Show("Sửa sinh viên thành công");
+
+            XoaTrang();
+            await TaiDanhSachAsync();
+        }
+
+        private async void btnXoa_Click(object sender, EventArgs e)
+        {
+            if (idDangChon == 0)
+            {
+                MessageBox.Show("Vui lòng chọn sinh viên cần xóa");
+                return;
+            }
+
+            DialogResult result = MessageBox.Show(
+                "Bạn có chắc muốn xóa sinh viên này?",
+                "Xác nhận",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question
+            );
+
+            if (result != DialogResult.Yes)
+                return;
+
+            using (var context = new AppDbContext())
+            {
+                student sv = await context.students.FindAsync(idDangChon);
+
+                if (sv == null)
+                {
+                    MessageBox.Show("Không tìm thấy sinh viên");
+                    return;
+                }
+
+                context.students.Remove(sv);
+                await context.SaveChangesAsync();
+            }
+
+            MessageBox.Show("Xóa sinh viên thành công");
+
+            XoaTrang();
+            await TaiDanhSachAsync();
+        }
+
+        private async void btnTaiLai_Click(object sender, EventArgs e)
+        {
+            XoaTrang();
+            await TaiDanhSachAsync();
+        }
+
+        private async void button5_Click(object sender, EventArgs e)
+        {
+            using (var context = new AppDbContext())
+            {
+                var danhSach = await context.students
+                    .Where(x => x.Grade >= 5)
+                    .OrderByDescending(x => x.Grade)
+                    .ToListAsync();
+
+                dataGridView1.DataSource = danhSach;
+            }
+        }
+
+        private void dataGridView1_CellClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex < 0)
+                return;
+
+            DataGridViewRow row = dataGridView1.Rows[e.RowIndex];
+
+            if (row.Cells["Id"].Value == null)
+                return;
+
+            idDangChon = Convert.ToInt32(row.Cells["Id"].Value);
+            txtHoTen.Text = row.Cells["FullName"].Value?.ToString();
+            txtDiem.Text = row.Cells["Grade"].Value?.ToString();
+        }
+
+        private void XoaTrang()
+        {
+            idDangChon = 0;
+            txtHoTen.Clear();
+            txtDiem.Clear();
+            txtHoTen.Focus();
+        }
+    }
+}
